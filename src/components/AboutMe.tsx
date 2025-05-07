@@ -1,7 +1,94 @@
-import React from 'react';
-import VladimirPhoto from '../Vladimir.jpg';
+import React, { useState, useEffect } from 'react';
+
+interface Comment {
+    _id: string;
+    author: string;
+    text: string;
+    date: string;
+}
 
 const AboutMe: React.FC = () => {
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [author, setAuthor] = useState<string>('');
+    const [commentText, setCommentText] = useState<string>('');
+    const [messageError, setMessageError] = useState<string>('');
+
+    useEffect(() => {
+        fetchComments();
+    }, []);
+
+    const fetchComments = async () => {
+        try {
+            const response = await fetch(`http://localhost:5000/api/comments`);
+            const data = await response.json();
+            setComments(data);
+        } catch (err) {
+            console.error(err);
+            console.log(err);
+            setMessageError("Произошла ошибка загрузки комментариев");
+        }
+    };
+
+    const formatTimeComment = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const differSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+        let timePast = '';
+        if (differSeconds < 60) {
+            timePast = `${differSeconds} секунд назад`;
+        } else if (differSeconds < 3600) {
+            timePast = `${Math.floor(differSeconds / 60)} минут назад`;
+        } else if (differSeconds < 86400) {
+            timePast = `${Math.floor(differSeconds / 36000)} часов назад`;
+        } else {
+            timePast = `${Math.floor(differSeconds / 86400)} дней назад`;
+        }
+
+        const time = date.toLocaleDateString('ru-RU', {hour12: false});
+        const dateFormatted = date.toLocaleDateString('ru-RU',
+            {day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        return `${timePast}, ${time}, ${dateFormatted}`;
+    }
+
+    const handleReply = (author: string) => {
+        setCommentText(`@${author}, `);
+        const textArea = document.querySelector('textarea');
+        textArea?.focus();
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!author || !commentText) {
+            setMessageError("Заполните поля автора и комментария!");
+            console.log("Заполните поля автора и комментария!");
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/api/comments`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ author, text: commentText }),
+            });
+            if (response.ok) {
+                setAuthor('');
+                setCommentText('');
+                setMessageError('');
+                fetchComments();
+            } else {
+                setMessageError("Произошла ошибка при добавлении комментария. Попробуйте позднее");
+                console.log("Произошла ошибка при добавлении комментария. Попробуйте позднее");
+            }
+        } catch (err) {
+            setMessageError("Произошла ошибка при добавлении комментария. Попробуйте позднее");
+            console.log("Произошла ошибка при добавлении комментария. Попробуйте позднее");
+            console.log(err);
+        }
+    };
+
     return (
         <>
             <header className="header">
@@ -13,7 +100,8 @@ const AboutMe: React.FC = () => {
                     <img src="/Vladimir.jpg" alt="Фото профиля" className="profile-photo"/>
                     <h2>Владимир Ямщиков</h2>
                     <p className="bio">Привет! Меня зовут Владимир Ямщиков, я студент НГТУ (НЭТИ), факультет ФПМИ и начинающий веб-разработчик. Увлекаюсь
-                        программированием, созданием сайтов и изучением новых технологий.</p>
+                        программированием, созданием сайтов и изучением новых технологий.
+                    </p>
                 </section>
 
                 <section className="history">
@@ -72,6 +160,39 @@ const AboutMe: React.FC = () => {
                     <p>GitHub: <a href="https://github.com/FAST-Technologies" target="_blank">FAST-Technologies</a></p>
                     <p>VK: <a href="https://vk.com/idf.a.s.t.play" target="_blank">idf.a.s.t.play</a></p>
                     <p>Telegram: <a href="https://web.telegram.org/a/" target="_blank">@FAST_entertainment</a></p>
+                </section>
+
+                <section className="comments">
+                    <h3>Раздел комментариев</h3>
+                    {messageError && <p className="error">{messageError}</p>}
+                    <div className="comment-form">
+                        <input
+                            type="text"
+                            placeholder="Ваше имя"
+                            value={author}
+                            onChange={(e) => setAuthor(e.target.value)}
+                        />
+                        <textarea
+                            placeholder="Ваш комментарий"
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                        />
+                        <button onClick={handleSubmit}>Отправить коммент</button>
+                    </div>
+                    <div className="comment-list">
+                        {comments.map((comment) => (
+                            <div key={comment._id} className="comment">
+                                <div className="comment-header">
+                                    <span className="comment-author">{comment.author}</span>
+                                    <span className="comment-date">{formatTimeComment(comment.date)}</span>
+                                    <button className="reply-button" onClick={() => handleReply(comment.author)}>
+                                        Ответить
+                                    </button>
+                                </div>
+                                <p className="comment-text">{comment.text}</p>
+                            </div>
+                        ))}
+                    </div>
                 </section>
             </main>
 
